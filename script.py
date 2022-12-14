@@ -94,4 +94,4 @@ def req1():
     to = datetime.time(12, 0) # midi
     trip_ids = trips[(frm <= trips["departure_time"]) & (trips["departure_time"] <= to)]["trip_id"]
     # comme on indexe à la fin sur une seule colonne, "trip_ids", on obtient une Series en une seule dimension
-    return trip_ids # nombre d'éléments dans la série
+    return trip_ids
