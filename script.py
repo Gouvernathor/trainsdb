@@ -63,7 +63,7 @@ def merge_db(db):
         for tab_id, table in group.items():
             table["source"] = groupname
 
-    merged = {tab_id : pd.concat([d[tab_id] for d in db.values()], ignore_index=True) for tab_id in _tables}
+    merged = {tab_id : pd.concat([d[tab_id] for d in db.values()], ignore_index=True, join="inner") for tab_id in _tables}
 
     shapes = {name : tab.shape for name, tab in merged.items()}
     for tab_id, table in merged.items():
