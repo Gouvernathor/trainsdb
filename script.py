@@ -5,7 +5,7 @@ import pandas as pd
 # table -> colonne(s) d'indexation
 _tables = dict(agency="agency_id",
             #    calendar="service_id",
-            #    calendar_dates=None, # retiré parce que le format n'est pas le même sur toutes les bases de données, à investiguer
+               calendar_dates=None, # retiré parce que le format n'est pas le même sur toutes les bases de données, à investiguer
             #    feed_info="feed_id",
                routes="route_id",
             #    stop_extensions="object_code",
@@ -39,16 +39,23 @@ def build():
         # mise en forme de certaines données
         # heures
         if tab == "stop_times":
-            table["arrival_time"] = pd.to_datetime(table["arrival_time"], format="%H:%M:%S", errors="coerce").dt.time
-            table["departure_time"] = pd.to_datetime(table["departure_time"], format="%H:%M:%S", errors="coerce").dt.time
+            def fix_hours(entry):
+                hrs, sep, rest = entry.partition(":")
+                hrs = int(hrs)
+                if hrs < 24:
+                    return entry
+                return str(hrs%24)+sep+rest
+
+            table["arrival_time"] = pd.to_datetime(table["arrival_time"].map(fix_hours, na_action="ignore"), format="%H:%M:%S").dt.time
+            table["departure_time"] = pd.to_datetime(table["departure_time"].map(fix_hours, na_action="ignore"), format="%H:%M:%S").dt.time
 
         # dates
         elif tab == "calendar_dates":
-            table["date"] = pd.to_datetime(table["date"], format="%Y%m%d", errors="coerce").dt.date
+            table["date"] = pd.to_datetime(table["date"], format="%Y%m%d").dt.date
 
         elif tab == "calendar":
-            table["start_date"] = pd.to_datetime(table["start_date"], format="%Y%m%d", errors="coerce").dt.date
-            table["end_date"] = pd.to_datetime(table["end_date"], format="%Y%m%d", errors="coerce").dt.date
+            table["start_date"] = pd.to_datetime(table["start_date"], format="%Y%m%d").dt.date
+            table["end_date"] = pd.to_datetime(table["end_date"], format="%Y%m%d").dt.date
 
         # suppression des doublons
         shape = table.shape
