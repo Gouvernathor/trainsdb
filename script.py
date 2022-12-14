@@ -20,61 +20,46 @@ def build():
     """
     db = {}
 
-    for fold in os.listdir("db"):
-        db[fold] = {}
-        for file in _tables:
-            fp = os.path.join("db", fold, file+".csv")
+    foldlist = os.listdir("db")
+
+    for tab in _tables:
+        tomerge = []
+        for fold in foldlist:
+            fp = os.path.join("db", fold, tab+".csv")
             if not os.path.exists(fp):
-                fp = os.path.join("db", fold, file+".txt")
+                fp = os.path.join("db", fold, tab+".txt")
                 if not os.path.exists(fp):
-                    raise RuntimeError(f"Fichier {file!r} absent dans la base de données {fold!r} ({fp!r})")
+                    raise RuntimeError(f"Fichier {tab!r} absent dans la base de données {fold!r} ({fp!r})")
                     # décider quoi faire quand un des fichiers est absent
-            db[fold][file] = pd.read_csv(fp)
+            tomerge.append(pd.read_csv(fp))
+            tomerge[-1]["source"] = fold
+        db[tab] = table = pd.concat(tomerge, ignore_index=True, join="inner")
+        # pour avoir le nom de la base de données en index, keys=foldlist
 
-    # mise en forme de certaines données
-
-    for fold, group in db.items():
+        # mise en forme de certaines données
         # heures
-        di = group.get("stop_times")
-        if di is not None:
-            di["arrival_time"] = pd.to_datetime(di["arrival_time"], format="%H:%M:%S", errors="coerce").dt.time
-            di["departure_time"] = pd.to_datetime(di["departure_time"], format="%H:%M:%S", errors="coerce").dt.time
+        if tab == "stop_times":
+            table["arrival_time"] = pd.to_datetime(table["arrival_time"], format="%H:%M:%S", errors="coerce").dt.time
+            table["departure_time"] = pd.to_datetime(table["departure_time"], format="%H:%M:%S", errors="coerce").dt.time
 
         # dates
-        di = group.get("calendar_dates")
-        if di is not None:
-            di["date"] = pd.to_datetime(di["date"], format="%Y%m%d", errors="coerce").dt.date
-            # di = group["calendar"]
-            # di["start_date"] = pd.to_datetime(di["start_date"], format="%Y%m%d", errors="coerce").dt.date
-            # di["end_date"] = pd.to_datetime(di["end_date"], format="%Y%m%d", errors="coerce").dt.date
+        elif tab == "calendar_dates":
+            table["date"] = pd.to_datetime(table["date"], format="%Y%m%d", errors="coerce").dt.date
+
+        elif tab == "calendar":
+            table["start_date"] = pd.to_datetime(table["start_date"], format="%Y%m%d", errors="coerce").dt.date
+            table["end_date"] = pd.to_datetime(table["end_date"], format="%Y%m%d", errors="coerce").dt.date
+
+        # suppression des doublons
+        shape = table.shape
+        table.drop_duplicates(subset=_tables[tab], keep="first", inplace=True, ignore_index=True)
+
+        if shape != table.shape:
+            print(f"Table {tab!r} : {shape} -> {table.shape}")
 
     return db
 
-def merge_db(db):
-    """
-    Fusionne les bases de données en une seule, on fusionne les agency entre elles, les trips, etc.
-    On finit avec un dictionnaire qui associe les tables aux noms de tables.
-    """
-    # version avec le nom de la base de données source mise en index
-    # merged = {tab_id : pd.concat([d[tab_id] for d in db.values()], keys=list(db.keys())) for tab_id in _tables}
-
-    # version avec le nom mis en colonne
-    for groupname, group in db.items():
-        for tab_id, table in group.items():
-            table["source"] = groupname
-
-    merged = {tab_id : pd.concat([d[tab_id] for d in db.values()], ignore_index=True, join="inner") for tab_id in _tables}
-
-    shapes = {name : tab.shape for name, tab in merged.items()}
-    for tab_id, table in merged.items():
-        merged[tab_id] = table.drop_duplicates(subset=_tables[tab_id], keep="first")
-        if tab_id not in ("agency",):
-            # assert shapes[tab_id] == merged[tab_id].shape, f"Table {tab_id!r} : {shapes[tab_id]} -> {merged[tab_id].shape}"
-            if shapes[tab_id] != merged[tab_id].shape:
-                print(f"Table {tab_id!r} : {shapes[tab_id]} -> {merged[tab_id].shape}")
-    return merged
-
-db = merge_db(build())
+db = build()
 
 ## premières requêtes
 
